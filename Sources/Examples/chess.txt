@@ -1,0 +1,279 @@
+// --- Helpers ---
+NSArray convertStringToCoords(id s) {
+    return @[Int(s[0]), Int(s[1]), Int(s[4]), Int(s[5])];
+}
+
+// --- Game definition ---
+@interface Game
+
+@property Board *board;
+@property BOOL isWhite;
+- (void)start;
+- (void)init;
+
+@end
+// -- Game implementation
+@implementation Game
+
+- (void)init {
+    self.board = [[Board alloc] baseInit];
+    self.isWhite = YES;
+    return self;
+}
+
+- (void)start {
+    printLine(@"Please input moves in the following format: xy->xy");
+    printLine(@"To quit the game, simply type `quit` when prompted for your move");
+    printLine(@"Have fun!");
+    
+    BOOL quit = NO;
+    while(!quit) {
+        [self.board display];
+        printLine((self.isWhite ? @"White, " : @"Black, ") + @"where would you like to move?");
+        NSString *in = readLine();
+        if(in == @"quit") {
+            quit = YES;
+        } else {
+            NSArray *coords = convertStringToCoords(in);
+            if ([self.board moveFrom:@[coords[0], coords[1]] to:@[coords[2], coords[3]] isWhite:self.isWhite]) {
+                self.isWhite = !self.isWhite;
+            } else {
+                printLine((self.isWhite ? @"White, " : @"Black, ") + @"you must move one of your own pieces.");
+            }
+        }
+        
+        if(![self.board bothKingsPresent]) {
+            quit = YES;
+            [self.board display];
+            printLine(@"Game over! " + ([self.board whiteKingPresent] ? @"White" : @"Black") + @" wins!");
+        }
+    }
+    
+    printLine(@"Goodbye!");
+}
+
+@end
+
+// --- Board definition ---
+@interface Board
+
+@property NSArray *contents;
+- (void)display;
+- (void)baseInit;
+- (BOOL)moveFrom:(NSArray*)x to:(NSArray*)y isWhite:(BOOL)isWhite;
+- (BOOL)bothKingsPresent;
+- (BOOL)whiteKingPresent;
+
+@end
+// --- Board implementation ---
+@implementation Board
+
+- (void)display {
+    NSString *line = @"";
+    for(int j = 0; j < [self.contents count]; j++) { line = line + @"  " + j + @"   "; }
+    printLine(line);
+    line = @"";
+    for(int i = 0; i < [self.contents count]; i++) {
+        for(int j = 0; j < [self.contents count]; j++) { line = line + @"------"; }
+        printLine(line);
+        line = @"";
+        
+        for(int j = 0; j < [self.contents[0] count]; j++) {
+            line = line + @"| ";
+            if(self.contents[i][j] == nil) {
+                line = line + @"  ";
+            } else {
+                Piece *cur = self.contents[i][j];
+                line = line + [cur display];
+            }
+            line = line + @" |";
+        }
+        line = line + @" " + i;
+        printLine(line);
+        line = @"";
+    }
+    
+    for(int i = 0; i < [self.contents count]; i++) { line = line + @"------"; }
+    printLine(line);
+}
+
+- (BOOL)moveFrom:(NSArray*)x to:(NSArray*)y isWhite:(BOOL)isWhite {
+    int x0 = x[1];
+    int x1 = x[0];
+    int y0 = y[1];
+    int y1 = y[0];
+    Piece *temp = self.contents[x0][x1];
+    if (temp.isWhite != isWhite) {
+        return NO;
+    }
+    self.contents[x0][x1] = nil;
+    self.contents[y0][y1] = temp;
+    return YES;
+}
+
+- (BOOL)bothKingsPresent {
+    NSInteger count = 0;
+    for(int i = 0; i < [self.contents count]; i++) {
+        for(int j = 0; j < [self.contents[0] count]; j++) {
+            if(self.contents[i][j] != nil) {
+                Piece *cur = self.contents[i][j];
+                if(cur.char == @"K") {
+                    count += 1;
+                }
+            }
+        }
+    }
+    
+    return count == 2;
+}
+
+- (BOOL)whiteKingPresent {
+    for(int i = 0; i < [self.contents count]; i++) {
+        for(int j = 0; j < [self.contents[0] count]; j++) {
+            if(self.contents[i][j] != nil) {
+                Piece *cur = self.contents[i][j];
+                if([cur display] == @"WK") {
+                    return YES;
+                }
+            }
+        }
+    }
+    
+    return NO;
+}
+
+- (void)baseInit {
+    self.contents = @[@[[[Rook alloc] initWhite: NO], [[Knight alloc] initWhite: NO], [[Bishop alloc] initWhite: NO], [[Queen alloc] initWhite: NO], [[King alloc] initWhite: NO], [[Bishop alloc] initWhite: NO], [[Knight alloc] initWhite: NO], [[Rook alloc] initWhite: NO]],
+                        @[[[Pawn alloc] initWhite: NO], [[Pawn alloc] initWhite: NO], [[Pawn alloc] initWhite: NO], [[Pawn alloc] initWhite: NO], [[Pawn alloc] initWhite: NO], [[Pawn alloc] initWhite: NO], [[Pawn alloc] initWhite: NO], [[Pawn alloc] initWhite: NO]],
+                        array(8), array(8), array(8), array(8),
+                        @[[[Pawn alloc] initWhite: YES], [[Pawn alloc] initWhite: YES], [[Pawn alloc] initWhite: YES], [[Pawn alloc] initWhite: YES], [[Pawn alloc] initWhite: YES], [[Pawn alloc] initWhite: YES], [[Pawn alloc] initWhite: YES], [[Pawn alloc] initWhite: YES]],
+                        @[[[Rook alloc] initWhite: YES], [[Knight alloc] initWhite: YES], [[Bishop alloc] initWhite: YES], [[Queen alloc] initWhite: YES], [[King alloc] initWhite: YES], [[Bishop alloc] initWhite: YES], [[Knight alloc] initWhite: YES], [[Rook alloc] initWhite: YES]]];
+    return self;
+}
+
+@end
+
+// --- Piece definition ---
+@interface Piece
+
+@property NSString *char;
+@property BOOL isWhite;
+- (void)initWhite:(BOOL)isWhite;
+- (NSString*)display;
+
+@end
+// --- Piece implementation ---
+@implementation Piece
+
+- (NSString*)display {
+    return (self.isWhite ? @"W" : @"B") + self.char;
+}
+
+@end
+
+// --- Pawn definition ---
+@interface Pawn: Piece
+
+@end
+// --- Pawn implementation ---
+@implementation Pawn
+
+- (void)initWhite:(BOOL)isWhite {
+    self.char = @"P";
+    self.isWhite = isWhite;
+    return self;
+}
+
+@end
+
+// --- King definition ---
+@interface King: Piece
+
+@end
+// --- King implementation ---
+@implementation King
+
+- (void)initWhite:(BOOL)isWhite {
+    self.char = @"K";
+    self.isWhite = isWhite;
+    return self;
+}
+
+@end
+
+// --- Queen definition ---
+@interface Queen: Piece
+
+@end
+// --- Queen implementation ---
+@implementation Queen
+
+- (void)initWhite:(BOOL)isWhite {
+    self.char = @"Q";
+    self.isWhite = isWhite;
+    return self;
+}
+
+@end
+
+// --- Bishop definition ---
+@interface Bishop: Piece
+
+@end
+// --- Bishop implementation ---
+@implementation Bishop
+
+- (void)initWhite:(BOOL)isWhite {
+    self.char = @"B";
+    self.isWhite = isWhite;
+    return self;
+}
+
+@end
+
+// --- Knight definition ---
+@interface Knight: Piece
+
+@end
+// --- Knight implementation ---
+@implementation Knight
+
+- (void)initWhite:(BOOL)isWhite {
+    self.char = @"k";
+    self.isWhite = isWhite;
+    return self;
+}
+
+@end
+
+// --- Rook definition ---
+@interface Rook: Piece
+
+@end
+// --- Rook implementation ---
+@implementation Rook
+
+- (void)initWhite:(BOOL)isWhite {
+    self.char = @"R";
+    self.isWhite = isWhite;
+    return self;
+}
+
+@end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// --- Main ---
+Game *game = [[Game alloc] init];
+[game start];
